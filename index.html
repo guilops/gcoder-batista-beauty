@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbf7f5">
+  <meta name="description" content="Extensão de cílios, estética e cursos em São Paulo. Agende seu atendimento com a Batista Beauty.">
+  <title>Batista Beauty | Cílios, estética e cursos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="announcement"><span class="status-dot"></span> CÍLIOS · ESTÉTICA · CURSOS <span class="announcement-divider">|</span> SÃO PAULO - SP</div>
+  <header class="site-header">
+    <a class="wordmark" href="#" aria-label="Batista Beauty, início">
+      <span class="brand-mark" aria-hidden="true">B</span><span>BATISTA BEAUTY<small>CÍLIOS · ESTÉTICA · FORMAÇÃO</small></span>
+    </a>
+    <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false"><span></span><span></span></button>
+    <nav class="main-nav" id="main-nav" aria-label="Navegação principal">
+      <a href="#servicos">Procedimentos</a><a href="#agendamento">Agendamento</a>
+      <a class="nav-cta" href="#agendamento">Agendar horário <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero section-wrap">
+      <div class="hero-copy">
+        <p class="eyebrow"><span></span> BELEZA E FORMAÇÃO EM SÃO PAULO</p>
+        <h1>Realce sua beleza.<br><em>Descubra seu olhar.</em></h1>
+        <p class="hero-intro">Extensão de cílios, cuidados estéticos e cursos com atenção a cada detalhe. Um atendimento pensado para você.</p>
+        <div class="hero-actions"><a class="button button-dark" href="#agendamento">Agendar atendimento <span aria-hidden="true">↗</span></a><a class="text-link" data-whatsapp href="#agendamento">Conversar no WhatsApp <span aria-hidden="true">↗</span></a></div>
+      </div>
+      <div class="hero-visual hero-carousel" role="region" aria-roledescription="carrossel" aria-label="Galeria de trabalhos e referências de cílios e estética">
+        <img class="hero-image" id="hero-carousel-image" src="assets/cliente-cilios-01.png" alt="Resultado de extensão de cílios em uma cliente da Batista Beauty" fetchpriority="high">
+        <div class="hero-image-label"><span class="label-icon" aria-hidden="true">✧</span><span><strong id="carousel-caption">Resultado de extensão de cílios</strong><small>Nosso trabalho, com carinho em cada detalhe</small></span></div>
+        <a class="photo-credit" id="photo-credit" href="#" target="_blank" rel="noopener noreferrer" hidden>Ver foto no Pexels</a>
+        <div class="carousel-controls" aria-label="Controles do carrossel">
+          <button class="carousel-arrow" id="carousel-previous" type="button" aria-label="Foto anterior">←</button>
+          <div class="carousel-dots" id="carousel-dots" role="group" aria-label="Escolher foto"></div>
+          <button class="carousel-arrow" id="carousel-next" type="button" aria-label="Próxima foto">→</button>
+          <button class="carousel-toggle" id="carousel-toggle" type="button" aria-label="Pausar carrossel">Ⅱ</button>
+          <span class="carousel-counter" id="carousel-counter" aria-live="polite">01 / 07</span>
+        </div>
+      </div>
+      <div class="scroll-cue"><span></span> CUIDADO EM CADA DETALHE</div>
+    </section>
+
+    <section class="section-wrap section-pad" id="servicos">
+      <div class="section-heading"><div><p class="eyebrow"><span></span> PROCEDIMENTOS E CURSOS</p><h2>Um cuidado que<br>combina <em>com você.</em></h2></div><p>Escolha seu atendimento ou venha aprender técnicas de extensão de cílios em uma formação dedicada.</p></div>
+      <div class="service-grid">
+        <article class="service-card"><span class="service-number">OLHAR EM DESTAQUE</span><span class="service-icon" aria-hidden="true">♡</span><h3>Extensão de cílios</h3><p>Aplicação personalizada para valorizar o seu olhar com delicadeza.</p></article>
+        <article class="service-card"><span class="service-number">SEU OLHAR RENOVADO</span><span class="service-icon" aria-hidden="true">✧</span><h3>Manutenção de cílios</h3><p>Cuidados e manutenção para preservar o resultado da sua extensão.</p></article>
+        <article class="service-card"><span class="service-number">MOMENTO DE AUTOCUIDADO</span><span class="service-icon" aria-hidden="true">◌</span><h3>Procedimentos estéticos</h3><p>Agende seu procedimento e consulte os detalhes pelo WhatsApp.</p></article>
+        <article class="service-card"><span class="service-number">FORMAÇÃO PROFISSIONAL</span><span class="service-icon" aria-hidden="true">✦</span><h3>Curso de extensão de cílios</h3><p>Aprenda técnicas de extensão de cílios em uma formação prática.</p></article>
+      </div>
+    </section>
+
+    <section class="section-wrap section-pad booking" id="agendamento">
+      <div class="booking-intro"><p class="eyebrow"><span></span> AGENDA ONLINE</p><h2>Seu momento<br>de <em>se cuidar.</em></h2><p>Escolha o procedimento ou curso, consulte os horários e envie seu pedido. A confirmação será feita depois pelo WhatsApp.</p><div class="booking-assurance"><span aria-hidden="true">✓</span><span><strong>Atendimento com hora marcada</strong><small>O horário fica confirmado após nosso retorno.</small></span></div><div class="booking-contact"><span>Quer tirar uma dúvida antes?</span><a class="contact-whatsapp" data-whatsapp href="#agendamento"><span aria-hidden="true">↗</span> Conversar no WhatsApp</a><a data-instagram href="https://www.instagram.com/batistabeautyclinic_/" target="_blank" rel="noopener noreferrer">Conheça nosso Instagram ↗</a><a data-location href="https://maps.app.goo.gl/FCLgKnxvPHUmRHTs8" target="_blank" rel="noopener noreferrer">Ver localização em São Paulo ↗</a><a data-email href="#agendamento">Enviar e-mail</a></div></div>
+      <form class="booking-form" id="booking-form">
+        <div class="form-heading"><span>SOLICITAÇÃO DE AGENDAMENTO</span><span class="form-step" id="booking-step">01 <i>/ 03</i></span></div>
+        <label>O que você deseja agendar?
+          <select name="service" required>
+            <option value="">Selecione um procedimento ou curso</option><option>Extensão de cílios</option><option>Manutenção de cílios</option><option>Procedimentos estéticos</option><option>Curso de extensão de cílios</option>
+          </select>
+        </label>
+        <label>Data desejada<input name="booking_date" type="date" required disabled></label>
+        <p class="form-feedback" id="booking-feedback" role="status" aria-live="polite"></p>
+        <div class="booking-details" id="booking-details" hidden>
+          <label>Horário disponível<select id="booking-time" name="booking_time" required disabled><option value="">Escolha uma data primeiro</option></select></label>
+          <label>Nome completo<input name="customer_name" type="text" autocomplete="name" minlength="2" maxlength="100" required placeholder="Como podemos chamar você?"></label>
+          <div class="form-row"><label>WhatsApp<input name="customer_phone" type="tel" autocomplete="tel" minlength="10" maxlength="30" required placeholder="(11) 99999-9999"></label><label>E-mail<input name="customer_email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@email.com"></label></div>
+          <label>Detalhes do atendimento<textarea name="details" maxlength="1200" placeholder="Conte se tem alguma preferência ou dúvida sobre o procedimento ou curso."></textarea></label>
+          <label class="trap-field" aria-hidden="true">Deixe este campo vazio<input name="website" type="text" tabindex="-1" autocomplete="off"></label>
+          <label class="consent-label"><input type="checkbox" required><span>Autorizo o uso destes dados para contato e atendimento da minha solicitação.</span></label>
+          <button class="button button-dark form-submit" type="submit" disabled>Solicitar agendamento <span aria-hidden="true">↗</span></button>
+          <p class="form-legal">Seus dados serão usados somente para tratar desta solicitação. O pedido ainda depende de confirmação.</p>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="section-wrap footer-main"><a class="wordmark" href="#"><span class="brand-mark" aria-hidden="true">B</span><span>BATISTA BEAUTY<small>CÍLIOS · ESTÉTICA · FORMAÇÃO</small></span></a><p>Beleza, cuidado e formação em São Paulo.</p><div class="footer-social"><a data-whatsapp href="#agendamento">WhatsApp ↗</a><a data-instagram href="https://www.instagram.com/batistabeautyclinic_/" target="_blank" rel="noopener noreferrer">Instagram ↗</a><a data-location href="https://maps.app.goo.gl/FCLgKnxvPHUmRHTs8" target="_blank" rel="noopener noreferrer">Localização ↗</a></div></div>
+    <div class="section-wrap footer-bottom"><span>© <span id="year"></span> Batista Beauty</span><a class="admin-link" href="gestao/">Gestão da agenda</a></div>
+  </footer>
+
+  <section class="admin-overlay" id="admin-overlay" hidden aria-label="Painel administrativo">
+    <div class="admin-panel">
+      <div class="admin-topbar"><a class="wordmark" href="#"><span class="brand-mark" aria-hidden="true">B</span><span>BATISTA BEAUTY<small>PAINEL ADMINISTRATIVO</small></span></a><a class="admin-close" href="#" aria-label="Fechar painel">×</a></div>
+      <section class="admin-login" id="admin-login">
+        <p class="eyebrow"><span></span> ÁREA RESTRITA</p><h1>Acesse sua<br><em>agenda.</em></h1><p>Entre com a conta administrativa cadastrada para consultar e gerenciar os pedidos.</p>
+        <form id="login-form"><label>E-mail<input name="email" type="email" autocomplete="username" required placeholder="seu@email.com"></label><label>Senha<input name="password" type="password" autocomplete="current-password" required placeholder="Sua senha"></label><p class="form-feedback" id="login-feedback" role="status" aria-live="polite"></p><button class="button button-dark" type="submit">Entrar no painel <span aria-hidden="true">↗</span></button></form>
+      </section>
+      <section class="dashboard" id="dashboard" hidden>
+        <div class="dashboard-heading"><div><p class="eyebrow"><span></span> VISÃO GERAL</p><h1>Sua agenda.</h1><p>Acompanhe os pedidos e atualize cada atendimento.</p></div><button class="button button-outline" id="signout-button" type="button">Sair</button></div>
+        <div class="dashboard-stats"><article><span>ATENDIMENTOS DE HOJE</span><strong id="today-count">0</strong><small>Pedidos ativos</small></article><article><span>AGUARDANDO CONFIRMAÇÃO</span><strong id="pending-count">0</strong><small>Precisam de retorno</small></article><article><span>PRÓXIMOS 7 DIAS</span><strong id="week-count">0</strong><small>Pedidos ativos</small></article></div>
+        <div class="calendar-section">
+          <div class="calendar-heading"><button class="button button-outline" id="previous-month" type="button" aria-label="Mês anterior">←</button><h2 id="calendar-month"></h2><button class="button button-outline" id="next-month" type="button" aria-label="Próximo mês">→</button><button class="button button-outline today-button" id="today-button" type="button">Hoje</button></div>
+          <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+        <section class="day-bookings"><div class="day-heading"><div><p class="eyebrow"><span></span> AGENDA DO DIA</p><h2 id="selected-day-title"></h2></div><span class="day-count" id="day-count"></span></div><div class="booking-list" id="booking-list"></div></section>
+      </section>
+    </div>
+  </section>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

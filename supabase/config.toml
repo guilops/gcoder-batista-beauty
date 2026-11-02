@@ -1,0 +1,7 @@
+project_id = "batista-beauty"
+
+[functions.booking-slots]
+verify_jwt = false
+
+[functions.create-booking]
+verify_jwt = false
