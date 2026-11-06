@@ -203,7 +203,9 @@ Deno.serve(async (request) => {
     });
   if (receiptUploadError) {
     console.error("Failed to store the booking receipt:", receiptUploadError.message);
-    return jsonResponse({ error: "Não foi possível guardar o comprovante. Tente novamente." }, 500);
+    return jsonResponse({
+      error: `Não foi possível guardar o comprovante no Storage: ${receiptUploadError.message}`,
+    }, 500);
   }
 
   const depositCents = Math.round(catalogItem.priceCents / 2);
