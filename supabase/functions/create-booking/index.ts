@@ -55,6 +55,10 @@ function formatCurrency(cents: number) {
   }).format(cents / 100);
 }
 
+function calculateDepositCents(priceCents: number) {
+  return Math.floor(priceCents / 200) * 100;
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return jsonResponse({ error: "Método não permitido." }, 405);
@@ -109,7 +113,7 @@ Deno.serve(async (request) => {
   } catch {
     return jsonResponse({ error: "O arquivo do comprovante está inválido. Anexe-o novamente." }, 400);
   }
-  const [receiptType, receiptFormat] = receiptMimeType;
+  const [, receiptFormat] = receiptMimeType;
   if (
     receiptBytes.length !== receiptByteLength ||
     !receiptFormat.signature.every((byte, index) => receiptBytes[index] === byte) ||
@@ -195,20 +199,7 @@ Deno.serve(async (request) => {
   }
 
   const bookingId = crypto.randomUUID();
-  const receiptPath = `${bookingId}/comprovante.${receiptExtension}`;
-  const { error: receiptUploadError } = await client.storage.from("booking-receipts")
-    .upload(receiptPath, receiptBytes, {
-      contentType: receiptType,
-      upsert: false,
-    });
-  if (receiptUploadError) {
-    console.error("Failed to store the booking receipt:", receiptUploadError.message);
-    return jsonResponse({
-      error: `Não foi possível guardar o comprovante no Storage: ${receiptUploadError.message}`,
-    }, 500);
-  }
-
-  const depositCents = Math.round(catalogItem.priceCents / 2);
+  const depositCents = calculateDepositCents(catalogItem.priceCents);
   const { data: booking, error: insertError } = await client.from("bookings").insert({
     id: bookingId,
     customer_name: name,
@@ -222,14 +213,9 @@ Deno.serve(async (request) => {
     service_price_cents: catalogItem.priceCents,
     deposit_cents: depositCents,
     payment_method: paymentMethod,
-    receipt_path: receiptPath,
   }).select("id").single();
 
   if (insertError?.code === "23505" || insertError?.code === "23P01") {
-    const { error: receiptCleanupError } = await client.storage.from("booking-receipts").remove([receiptPath]);
-    if (receiptCleanupError) {
-      console.error("Failed to remove a receipt for a conflicting booking:", receiptCleanupError.message);
-    }
     return jsonResponse({
       code: "slot_taken",
       error: unavailableBookingMessage,
@@ -237,10 +223,6 @@ Deno.serve(async (request) => {
   }
   if (insertError || !booking) {
     console.error("Failed to save the booking:", insertError?.message || "No booking was returned.");
-    const { error: receiptCleanupError } = await client.storage.from("booking-receipts").remove([receiptPath]);
-    if (receiptCleanupError) {
-      console.error("Failed to remove the receipt after the booking could not be saved:", receiptCleanupError.message);
-    }
     return jsonResponse({ error: "Não foi possível salvar o pedido. Tente novamente." }, 500);
   }
 
@@ -264,14 +246,14 @@ Deno.serve(async (request) => {
     from: emailFrom || "",
     to: adminEmail ? [adminEmail] : [],
     subject: `Comprovante de reserva — ${name}`,
-    html: `<h2>Novo pedido de reserva — Batista Beauty</h2><p><strong>Cliente:</strong> ${safeName}</p><p><strong>Telefone:</strong> ${safePhone} (<a href="https://wa.me/${whatsapp}">conversar no WhatsApp</a>)</p><p><strong>E-mail:</strong> ${escapeHtml(email)}</p><p><strong>Serviço:</strong> ${safeService} (${formatDuration(durationMinutes)})</p><p><strong>Data:</strong> ${dateLabel} às ${time}</p><p><strong>Valor total:</strong> ${priceLabel}</p><p><strong>Sinal de 50%:</strong> ${depositLabel}</p><p><strong>Pagamento informado:</strong> ${paymentMethodLabel}</p><p><strong>Comprovante:</strong> anexado a este e-mail e disponível no painel.</p><p><strong>Detalhes:</strong> ${safeDetails}</p><p>Confira o pagamento e o comprovante antes de confirmar o horário no painel da Batista Beauty.</p>`,
+    html: `<h2>Novo pedido de reserva — Batista Beauty</h2><p><strong>Cliente:</strong> ${safeName}</p><p><strong>Telefone:</strong> ${safePhone} (<a href="https://wa.me/${whatsapp}">conversar no WhatsApp</a>)</p><p><strong>E-mail:</strong> ${escapeHtml(email)}</p><p><strong>Serviço:</strong> ${safeService} (${formatDuration(durationMinutes)})</p><p><strong>Data:</strong> ${dateLabel} às ${time}</p><p><strong>Valor total:</strong> ${priceLabel}</p><p><strong>Sinal para reserva (50% arredondado para baixo, sem centavos):</strong> ${depositLabel}</p><p><strong>Pagamento informado:</strong> ${paymentMethodLabel}</p><p><strong>Comprovante:</strong> anexado a este e-mail.</p><p><strong>Detalhes:</strong> ${safeDetails}</p><p>Confira o pagamento e o comprovante antes de confirmar o horário no painel da Batista Beauty.</p>`,
     attachments: [receiptAttachment],
   };
   const customerMessage = {
     from: emailFrom || "",
     to: [email],
     subject: "Recebemos seu comprovante — Batista Beauty",
-    html: `<p>Olá, ${safeName}!</p><p>Recebemos seu pedido para <strong>${safeService}</strong> em <strong>${dateLabel} às ${time}</strong>.</p><p><strong>Valor do serviço:</strong> ${priceLabel}<br><strong>Sinal de 50%:</strong> ${depositLabel}<br><strong>Pagamento informado:</strong> ${paymentMethodLabel}</p><p>O comprovante foi anexado. A reserva ainda não está confirmada: a Batista Beauty vai conferir o pagamento e confirmar o horário.</p><p>Seus detalhes: ${safeDetails}</p><p>A Batista Beauty poderá entrar em contato pelo WhatsApp ${safePhone}.</p><p>Com carinho,<br>Batista Beauty</p>`,
+    html: `<p>Olá, ${safeName}!</p><p>Recebemos seu pedido para <strong>${safeService}</strong> em <strong>${dateLabel} às ${time}</strong>.</p><p><strong>Valor do serviço:</strong> ${priceLabel}<br><strong>Sinal para reserva (50% arredondado para baixo, sem centavos):</strong> ${depositLabel}<br><strong>Pagamento informado:</strong> ${paymentMethodLabel}</p><p>O comprovante foi anexado. A reserva ainda não está confirmada: a Batista Beauty vai conferir o pagamento e confirmar o horário.</p><p>Seus detalhes: ${safeDetails}</p><p>A Batista Beauty poderá entrar em contato pelo WhatsApp ${safePhone}.</p><p>Com carinho,<br>Batista Beauty</p>`,
     attachments: [receiptAttachment],
   };
 
@@ -320,7 +302,10 @@ Deno.serve(async (request) => {
   }));
   const notificationsSent = adminDelivery.sent && customerDelivery.sent;
   const { error: notificationUpdateError } = await client.from("bookings")
-    .update({ notifications_sent: notificationsSent })
+    .update({
+      notifications_sent: notificationsSent,
+      admin_email_sent: adminDelivery.sent,
+    })
     .eq("id", booking.id);
   if (notificationUpdateError) {
     console.error("The booking was saved but its email delivery status could not be saved:", notificationUpdateError.message);

@@ -106,7 +106,7 @@ const heroPhotos = [
     source: "https://www.pexels.com/search/eyelashes%20beauty%20salon/",
   },
 ];
-const bookingFields = "id,customer_name,customer_phone,customer_email,service,details,booking_date,booking_time,duration_minutes,status,service_price_cents,deposit_cents,payment_method,receipt_path";
+const bookingFields = "id,customer_name,customer_phone,customer_email,service,details,booking_date,booking_time,duration_minutes,status,service_price_cents,deposit_cents,payment_method,admin_email_sent";
 let visibleMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let selectedDate = dateToISO(new Date());
 let monthBookings = [];
@@ -233,6 +233,10 @@ function formatCurrency(cents) {
   }).format(cents / 100);
 }
 
+function calculateDepositCents(priceCents) {
+  return Math.floor(priceCents / 200) * 100;
+}
+
 function updateDepositSummary() {
   const service = serviceCatalog.find((item) => item.name === bookingService.value);
   const serviceLabel = document.querySelector("#deposit-service");
@@ -242,10 +246,10 @@ function updateDepositSummary() {
     values.textContent = "";
     return;
   }
-  const depositCents = Math.round(service.priceCents / 2);
+  const depositCents = calculateDepositCents(service.priceCents);
   serviceLabel.textContent = service.name;
   values.textContent =
-    `Valor total: ${formatCurrency(service.priceCents)} · Sinal de 50%: ${formatCurrency(depositCents)}`;
+    `Valor total: ${formatCurrency(service.priceCents)} · Sinal (50% arredondado para baixo, sem centavos): ${formatCurrency(depositCents)}`;
 }
 
 function setupServiceCatalog() {
@@ -258,7 +262,8 @@ function setupServiceCatalog() {
     const group = groupedServices.get(service.group) || [];
     group.push(service);
     groupedServices.set(service.group, group);
-    bookingService.add(new Option(`${service.name} · ${formatCurrency(service.priceCents)} (sinal ${formatCurrency(service.priceCents / 2)})`, service.name));
+    const depositCents = calculateDepositCents(service.priceCents);
+    bookingService.add(new Option(`${service.name} · ${formatCurrency(service.priceCents)} (sinal ${formatCurrency(depositCents)})`, service.name));
   }
 
   const icons = ["♡", "✧", "◌", "✦", "◇", "❋"];
@@ -278,7 +283,7 @@ function setupServiceCatalog() {
         itemDetails,
         "small",
         "",
-        `${formatCurrency(service.priceCents)} · sinal ${formatCurrency(service.priceCents / 2)}`,
+        `${formatCurrency(service.priceCents)} · sinal ${formatCurrency(calculateDepositCents(service.priceCents))}`,
       );
       item.append(itemDetails);
       const chooseButton = document.createElement("button");
@@ -320,12 +325,9 @@ function setupHeroCarousel() {
   const toggle = document.querySelector("#carousel-toggle");
   if (!image || !caption || !source || !dots || !counter || !toggle) return;
 
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let currentIndex = 0;
   let timer;
-  let paused = reducedMotion.matches;
-  let hovering = false;
-  let focused = false;
+  let paused = false;
 
   function stopTimer() {
     window.clearInterval(timer);
@@ -334,8 +336,8 @@ function setupHeroCarousel() {
 
   function startTimer() {
     stopTimer();
-    if (paused || hovering || focused || document.hidden || heroPhotos.length < 2) return;
-    timer = window.setInterval(() => showPhoto(currentIndex + 1), 6000);
+    if (paused || document.hidden || heroPhotos.length < 2) return;
+    timer = window.setInterval(() => showPhoto(currentIndex + 1), 3000);
   }
 
   function showPhoto(index) {
@@ -388,31 +390,7 @@ function setupHeroCarousel() {
     const bounds = carousel.getBoundingClientRect();
     showPhoto(event.clientX < bounds.left + bounds.width / 2 ? currentIndex - 1 : currentIndex + 1);
   });
-  carousel.addEventListener("mouseenter", () => {
-    hovering = true;
-    stopTimer();
-  });
-  carousel.addEventListener("mouseleave", () => {
-    hovering = false;
-    startTimer();
-  });
-  carousel.addEventListener("focusin", () => {
-    focused = true;
-    stopTimer();
-  });
-  carousel.addEventListener("focusout", (event) => {
-    if (!carousel.contains(event.relatedTarget)) {
-      focused = false;
-      startTimer();
-    }
-  });
   document.addEventListener("visibilitychange", startTimer);
-  reducedMotion.addEventListener("change", (event) => {
-    paused = event.matches;
-    toggle.textContent = paused ? "▶" : "Ⅱ";
-    toggle.setAttribute("aria-label", paused ? "Iniciar carrossel" : "Pausar carrossel");
-    startTimer();
-  });
   showPhoto(0);
 }
 
@@ -560,9 +538,12 @@ async function submitBooking(event) {
       ].filter(Boolean).join(" | ")
       : "um ou mais destinatários: a função publicada não informou o motivo; publique a versão atualizada para ver o erro";
     const serviceDetails = `${data.service}, ${formatDateTitle(data.booking_date)} às ${data.booking_time}${data.details ? ` — ${data.details}` : ""}`;
+    const receiptGuidance = delivery?.admin
+      ? "A equipe recebeu o comprovante, mas o e-mail para a cliente falhou. A reserva ainda depende da confirmação da equipe."
+      : "A equipe ainda não recebeu o comprovante. Entre em contato pelo WhatsApp para reenviá-lo; o horário ficará pendente até a equipe receber e conferir o pagamento.";
     setFeedback(
       feedback,
-      `ALERTA: reserva solicitada e comprovante salvo, mas falhou o envio de e-mail: ${failedRecipients} | Pedido: ${serviceDetails}. A equipe pode conferir o anexo no painel; o horário ainda depende de confirmação.`,
+      `ALERTA: pedido registrado, mas falhou o envio de e-mail (${failedRecipients}). ${receiptGuidance} Pedido: ${serviceDetails}.`,
     );
   }
 }
@@ -606,31 +587,10 @@ function renderBookingList() {
     appendBookingField(details, "small", "", priceDetails);
     appendBookingField(details, "small", "", `Pagamento: ${booking.payment_method === "pix" ? "Pix" : booking.payment_method === "credit_card" ? "Cartão de crédito" : "não informado"}`);
     card.append(details);
-    if (booking.receipt_path) {
-      const receiptLink = document.createElement("a");
-      receiptLink.className = "receipt-link";
-      receiptLink.href = "#";
-      receiptLink.textContent = "Ver comprovante";
-      receiptLink.addEventListener("click", async (event) => {
-        event.preventDefault();
-        const receiptWindow = window.open("about:blank", "_blank");
-        if (!receiptWindow) {
-          showToast("Permita a abertura de janelas para visualizar o comprovante.");
-          return;
-        }
-        receiptWindow.opener = null;
-        const { data, error } = await db.storage.from("booking-receipts")
-          .createSignedUrl(booking.receipt_path, 60 * 60);
-        if (error || !data?.signedUrl) {
-          receiptWindow.close();
-          showToast(`Não foi possível abrir o comprovante: ${error?.message || "link indisponível"}`);
-          return;
-        }
-        receiptWindow.location.href = data.signedUrl;
-      });
-      details.append(receiptLink);
+    if (booking.admin_email_sent) {
+      appendBookingField(details, "small", "receipt-sent", "Comprovante enviado no e-mail da equipe.");
     } else {
-      appendBookingField(details, "small", "receipt-missing", "Comprovante não anexado.");
+      appendBookingField(details, "small", "receipt-missing", "Comprovante ainda não enviado no e-mail da equipe.");
     }
     const contact = document.createElement("div");
     contact.className = "admin-booking-contact";
@@ -659,9 +619,9 @@ function renderBookingList() {
     ]) {
       const option = new Option(label, value, false, booking.status === value);
       if (value === "confirmed") {
-        option.disabled = !booking.receipt_path ||
+        option.disabled = !booking.admin_email_sent ||
           !booking.service_price_cents ||
-          booking.deposit_cents * 2 !== booking.service_price_cents;
+          booking.deposit_cents !== calculateDepositCents(booking.service_price_cents);
       }
       select.add(option);
     }
@@ -979,12 +939,12 @@ async function updateBookingStatus(id, status, select) {
   const booking = monthBookings.find((item) => item.id === id);
   if (
     status === "confirmed" &&
-    (!booking?.receipt_path ||
+    (!booking?.admin_email_sent ||
       !booking.service_price_cents ||
-      booking.deposit_cents * 2 !== booking.service_price_cents)
+      booking.deposit_cents !== calculateDepositCents(booking.service_price_cents))
   ) {
     select.value = booking?.status || "pending";
-    showToast("Só é possível confirmar após receber o comprovante do sinal de 50%.");
+    showToast("Só é possível confirmar depois que o e-mail com comprovante chegar à equipe e o sinal for conferido.");
     return;
   }
   select.disabled = true;

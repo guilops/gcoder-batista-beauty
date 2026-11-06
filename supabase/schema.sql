@@ -17,6 +17,7 @@ create table if not exists public.bookings (
   status text not null default 'pending'
     check (status in ('pending', 'confirmed', 'completed', 'cancelled')),
   notifications_sent boolean not null default false,
+  admin_email_sent boolean not null default false,
   service_price_cents integer not null default 0 check (service_price_cents >= 0),
   deposit_cents integer check (deposit_cents is null or deposit_cents >= 0),
   payment_method text check (payment_method is null or payment_method in ('pix', 'credit_card')),
@@ -25,6 +26,7 @@ create table if not exists public.bookings (
 );
 
 alter table public.bookings
+  add column if not exists admin_email_sent boolean not null default false,
   add column if not exists service_price_cents integer not null default 0
     check (service_price_cents >= 0),
   add column if not exists deposit_cents integer
@@ -32,6 +34,12 @@ alter table public.bookings
   add column if not exists payment_method text
     check (payment_method is null or payment_method in ('pix', 'credit_card')),
   add column if not exists receipt_path text;
+
+update public.bookings
+set admin_email_sent = true
+where receipt_path is not null
+  and notifications_sent
+  and not admin_email_sent;
 
 create table if not exists public.schedule_blocks (
   id uuid primary key default gen_random_uuid(),
@@ -65,23 +73,22 @@ set search_path = ''
 as $$
 begin
   if tg_op = 'INSERT' and (
-    new.receipt_path is null or
     new.payment_method is null or
     new.service_price_cents <= 0 or
     new.deposit_cents is null or
-    new.deposit_cents * 2 <> new.service_price_cents
+    new.deposit_cents <> (new.service_price_cents / 200) * 100
   ) then
-    raise exception 'A payment receipt and 50% deposit are required to create a booking request.'
+    raise exception 'A payment method and valid rounded deposit are required to create a booking request.'
       using errcode = '23514';
   end if;
   if new.status = 'confirmed' and (
-    new.receipt_path is null or
+    not new.admin_email_sent or
     new.payment_method is null or
     new.service_price_cents <= 0 or
     new.deposit_cents is null or
-    new.deposit_cents * 2 <> new.service_price_cents
+    new.deposit_cents <> (new.service_price_cents / 200) * 100
   ) then
-    raise exception 'A valid payment receipt and 50% deposit are required to confirm a booking.'
+    raise exception 'The receipt email and a valid rounded deposit are required to confirm a booking.'
       using errcode = '23514';
   end if;
   if new.status in ('pending', 'confirmed') then
@@ -190,30 +197,6 @@ create policy "Admins can manage service durations"
     )
   )
   with check (
-    exists (
-      select 1 from public.admins
-      where admins.user_id = (select auth.uid())
-    )
-  );
-
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'booking-receipts',
-  'booking-receipts',
-  false,
-  5242880,
-  array['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-)
-on conflict (id) do update
-set public = false,
-    file_size_limit = excluded.file_size_limit,
-    allowed_mime_types = excluded.allowed_mime_types;
-
-drop policy if exists "Admins can view booking receipts" on storage.objects;
-create policy "Admins can view booking receipts"
-  on storage.objects for select to authenticated
-  using (
-    bucket_id = 'booking-receipts' and
     exists (
       select 1 from public.admins
       where admins.user_id = (select auth.uid())
