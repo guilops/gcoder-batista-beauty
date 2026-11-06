@@ -55,6 +55,18 @@ function calculateDepositCents(priceCents: number) {
 }
 
 Deno.serve(async (request) => {
+  try {
+    return await handleCreateBooking(request);
+  } catch (error) {
+    const detail = error instanceof Error
+      ? `${error.name}: ${error.message}`
+      : String(error);
+    console.error("Unhandled create-booking error:", error);
+    return jsonResponse({ error: `Erro inesperado na função create-booking: ${detail}` }, 500);
+  }
+});
+
+async function handleCreateBooking(request: Request) {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return jsonResponse({ error: "Método não permitido." }, 405);
 
@@ -112,7 +124,7 @@ Deno.serve(async (request) => {
   if (
     receiptBytes.length !== receiptByteLength ||
     !receiptFormat.signature.every((byte, index) => receiptBytes[index] === byte) ||
-    (receiptType === "image/webp" &&
+    (receiptMimeType[0] === "image/webp" &&
       String.fromCharCode(...receiptBytes.slice(8, 12)) !== "WEBP")
   ) {
     return jsonResponse({ error: "O formato do arquivo não corresponde ao comprovante anexado." }, 400);
@@ -332,7 +344,7 @@ Deno.serve(async (request) => {
       customer: customerDelivery.error,
     },
   }, 201);
-});
+}
 
 function normalizeEmailFrom(value?: string) {
   let sender = value?.trim() || "";
