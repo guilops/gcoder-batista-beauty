@@ -485,9 +485,12 @@ async function getBookingFunctionError(error) {
     }
   }
 
-  const detail = payload?.error || payload?.message ||
+  let detail = payload?.error || payload?.message ||
     (context instanceof Error ? context.message : "") ||
     responseText || error?.message || String(error);
+  if (!status && detail === "Failed to fetch") {
+    detail = "Failed to fetch: o navegador não recebeu resposta HTTP. Verifique se a função create-booking está publicada no projeto configurado e consulte Supabase → Edge Functions → create-booking → Logs. Se não houver invocação nos Logs, confira URL e CORS; se houver, abra o erro da invocação.";
+  }
   return {
     code: payload?.code,
     message: `${status ? `HTTP ${status}: ` : ""}${detail}`,
