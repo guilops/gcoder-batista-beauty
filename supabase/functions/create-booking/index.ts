@@ -145,7 +145,12 @@ Deno.serve(async (request) => {
   const emailFrom = emailFromSetting.value;
   if (!supabaseUrl || !serviceKey) {
     console.error("Booking submission is missing its server-side Supabase configuration.");
-    return jsonResponse({ error: "Não foi possível salvar o pedido agora. Tente novamente mais tarde." }, 503);
+    return jsonResponse({
+      error: `Configuração da função incompleta: ${[
+        !supabaseUrl && "SUPABASE_URL",
+        !serviceKey && "SUPABASE_SERVICE_ROLE_KEY",
+      ].filter(Boolean).join(", ")} não definido.`,
+    }, 503);
   }
 
   const client = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
@@ -155,7 +160,9 @@ Deno.serve(async (request) => {
     .single();
   if (durationError || !serviceDuration) {
     console.error("Failed to retrieve service duration:", durationError?.message || "No duration was returned.");
-    return jsonResponse({ error: "Não foi possível verificar a duração do serviço." }, 500);
+    return jsonResponse({
+      error: `Falha ao consultar a duração do serviço${durationError?.code ? ` (${durationError.code})` : ""}: ${durationError?.message || "nenhuma duração cadastrada foi retornada"}${durationError?.details ? ` — ${durationError.details}` : ""}`,
+    }, 500);
   }
   const durationMinutes = serviceDuration.duration_minutes;
   const { data: blocks, error: blocksError } = await client.from("schedule_blocks")
@@ -163,7 +170,9 @@ Deno.serve(async (request) => {
     .eq("blocked_date", date);
   if (blocksError) {
     console.error("Failed to check schedule blocks:", blocksError.message);
-    return jsonResponse({ error: "Não foi possível confirmar a disponibilidade. Tente novamente." }, 500);
+    return jsonResponse({
+      error: `Falha ao consultar bloqueios da agenda${blocksError.code ? ` (${blocksError.code})` : ""}: ${blocksError.message}${blocksError.details ? ` — ${blocksError.details}` : ""}`,
+    }, 500);
   }
   const requestedStart = timeToMinutes(time);
   const requestedEnd = requestedStart + durationMinutes;
@@ -185,7 +194,9 @@ Deno.serve(async (request) => {
     .in("status", ["pending", "confirmed"]);
   if (bookingsError) {
     console.error("Failed to check overlapping bookings:", bookingsError.message);
-    return jsonResponse({ error: "Não foi possível confirmar a disponibilidade. Tente novamente." }, 500);
+    return jsonResponse({
+      error: `Falha ao consultar reservas existentes${bookingsError.code ? ` (${bookingsError.code})` : ""}: ${bookingsError.message}${bookingsError.details ? ` — ${bookingsError.details}` : ""}`,
+    }, 500);
   }
   if (existingBookings.some((booking) => {
     const start = timeToMinutes(booking.booking_time);
@@ -223,7 +234,10 @@ Deno.serve(async (request) => {
   }
   if (insertError || !booking) {
     console.error("Failed to save the booking:", insertError?.message || "No booking was returned.");
-    return jsonResponse({ error: "Não foi possível salvar o pedido. Tente novamente." }, 500);
+    const databaseError = insertError
+      ? [insertError.code, insertError.message, insertError.details, insertError.hint].filter(Boolean).join(" — ")
+      : "o banco não retornou o registro criado";
+    return jsonResponse({ error: `Falha ao salvar pedido no banco: ${databaseError}` }, 500);
   }
 
   const safeName = escapeHtml(name);

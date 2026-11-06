@@ -462,6 +462,38 @@ function fileToBase64(file) {
   });
 }
 
+async function getBookingFunctionError(error) {
+  const context = error?.context;
+  const status = Number.isInteger(context?.status) ? context.status : null;
+  let payload = context && typeof context === "object" && typeof context.json !== "function"
+    ? context
+    : null;
+  let responseText = "";
+
+  if (typeof context?.text === "function") {
+    try {
+      responseText = (await context.text()).trim();
+      if (responseText) {
+        try {
+          payload = JSON.parse(responseText);
+        } catch {
+          payload = null;
+        }
+      }
+    } catch (readError) {
+      console.error("Could not read the booking error response:", readError);
+    }
+  }
+
+  const detail = payload?.error || payload?.message ||
+    (context instanceof Error ? context.message : "") ||
+    responseText || error?.message || String(error);
+  return {
+    code: payload?.code,
+    message: `${status ? `HTTP ${status}: ` : ""}${detail}`,
+  };
+}
+
 async function submitBooking(event) {
   event.preventDefault();
   if (!clientBookingsEnabled) {
@@ -492,21 +524,23 @@ async function submitBooking(event) {
     mimeType: receiptFile.type,
     content: receiptContent,
   };
-  const { data: response, error } = await db.functions.invoke("create-booking", { body: data });
+  let response;
+  let invokeError;
+  try {
+    ({ data: response, error: invokeError } = await db.functions.invoke("create-booking", { body: data }));
+  } catch (error) {
+    invokeError = error;
+  }
   submitButton.disabled = !bookingTime.value;
   submitButton.innerHTML = 'Enviar comprovante e solicitar reserva <span aria-hidden="true">↗</span>';
-  if (error) {
-    let responseBody;
-    try {
-      responseBody = await error.context?.json();
-    } catch (parseError) {
-      console.error("Could not read the booking error response:", parseError);
-    }
-    if (responseBody?.code === "slot_taken") {
+  if (invokeError) {
+    console.error("Booking request failed:", invokeError);
+    const functionError = await getBookingFunctionError(invokeError);
+    if (functionError.code === "slot_taken") {
       if (bookingDate.value) await loadAvailableSlots(bookingDate.value, bookingService.value);
       setFeedback(feedback, unavailableBookingMessage);
     } else {
-      setFeedback(feedback, responseBody?.error || "Não foi possível enviar seu pedido. Confira sua conexão e tente novamente.");
+      setFeedback(feedback, `Falha ao enviar o pedido: ${functionError.message}`);
     }
     return;
   }
