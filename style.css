@@ -354,3 +354,38 @@ h1 em, h2 em { color: var(--green); font-family: var(--serif); font-weight: 400;
   .service-card p { min-height: 0; margin-bottom: 0; font-size: 9px; line-height: 1.55; }
   .booking { gap: 22px; }
 }
+#servicos .service-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; border: 0; }
+#servicos .service-card { min-height: 0; padding: 18px; border: 1px solid var(--line); }
+.service-prices { display: grid; gap: 0; margin: 15px 0 0; padding: 0; list-style: none; }
+.service-prices li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
+.service-prices li > div { min-width: 0; }
+.service-prices strong, .service-prices small { display: block; }
+.service-prices strong { font-size: 10px; line-height: 1.4; }
+.service-prices small { margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.4; }
+.catalog-select { flex: 0 0 auto; padding: 6px 0 6px 6px; border: 0; background: transparent; color: var(--green); cursor: pointer; font-size: 9px; font-weight: 700; }
+.catalog-select:hover { color: var(--green-dark); text-decoration: underline; }
+.catalog-note { margin: 16px 0 0; color: var(--muted); font-size: 10px; line-height: 1.7; }
+.pix-key-panel { display: grid; justify-items: start; gap: 8px; margin-top: 22px; padding: 18px; border: 1px solid #e8d8df; background: #fffaf9; }
+.pix-key-panel > span { color: var(--muted); font-size: 8px; font-weight: 700; letter-spacing: 1.2px; }
+.pix-key-panel > strong { color: var(--green-dark); font: 700 20px var(--display); letter-spacing: 1px; }
+.pix-key-panel > small { color: var(--muted); font-size: 9px; line-height: 1.6; }
+.copy-pix-button { padding: 7px 10px; border: 1px solid #e5d6dc; background: #fff; color: var(--green-dark); cursor: pointer; font-size: 9px; font-weight: 700; }
+.copy-pix-button:hover { background: #f7edf1; }
+.deposit-summary { display: grid; gap: 6px; padding: 13px; border-left: 3px solid var(--green); background: #f7edf1; color: var(--green-dark); }
+.deposit-summary strong { font-size: 11px; }
+.deposit-summary span, .payment-instructions, .booking-form label small { color: var(--muted); font-size: 9px; line-height: 1.6; }
+.payment-instructions { margin: -7px 0 0; }
+.receipt-link { display: inline-block; margin-top: 7px; color: var(--green); font-size: 9px; font-weight: 700; text-decoration: underline; }
+.receipt-missing { color: #a54838 !important; }
+.duration-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) {
+  #servicos .service-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  #servicos .service-grid { grid-template-columns: 1fr; }
+  #servicos .service-card { padding: 15px; }
+  .service-prices li { gap: 14px; }
+  .service-prices strong { font-size: 11px; }
+  .pix-key-panel { padding: 15px; }
+  .duration-grid { grid-template-columns: 1fr 1fr; }
+}

@@ -1,16 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  bookingServices,
+  receiptMaxBytes,
+  receiptMimeTypes,
+} from "../_shared/service-catalog.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const allowedServices = new Set([
-  "Extensão de cílios",
-  "Manutenção de cílios",
-  "Procedimentos estéticos",
-  "Curso de extensão de cílios",
-]);
 const unavailableBookingMessage =
   "Essa data ou horário não está mais disponível para agendamento. Escolha outra data ou horário.";
 
@@ -22,6 +21,8 @@ type BookingRequest = {
   details?: unknown;
   booking_date?: unknown;
   booking_time?: unknown;
+  payment_method?: unknown;
+  receipt?: unknown;
   website?: unknown;
 };
 
@@ -43,6 +44,17 @@ function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => entities[character]);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function formatCurrency(cents: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(cents / 100);
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return jsonResponse({ error: "Método não permitido." }, 405);
@@ -62,15 +74,51 @@ Deno.serve(async (request) => {
   const details = typeof body.details === "string" ? body.details.trim() : "";
   const date = typeof body.booking_date === "string" ? body.booking_date : "";
   const time = typeof body.booking_time === "string" ? body.booking_time : "";
+  const paymentMethod = body.payment_method;
+  const catalogItem = Object.entries(bookingServices).find(([name]) => name === service)?.[1];
+  const receipt = isRecord(body.receipt) ? body.receipt : null;
+  const receiptMimeType = typeof receipt?.mimeType === "string"
+    ? Object.entries(receiptMimeTypes).find(([mimeType]) => mimeType === receipt.mimeType)
+    : undefined;
+  const receiptContent = typeof receipt?.content === "string" ? receipt.content : "";
+  const receiptPadding = receiptContent.endsWith("==") ? 2 : receiptContent.endsWith("=") ? 1 : 0;
+  const receiptByteLength = (receiptContent.length / 4) * 3 - receiptPadding;
   if (
     name.length < 2 || name.length > 100 ||
     phone.replace(/\D/g, "").length < 10 || phone.length > 30 ||
     email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    !allowedServices.has(service) || details.length > 1200 ||
+    !catalogItem || details.length > 1200 ||
     !/^\d{4}-\d{2}-\d{2}$/.test(date) || !isValidSlot(time)
   ) {
     return jsonResponse({ error: "Confira os dados e o horário escolhido e tente novamente." }, 400);
   }
+  if (paymentMethod !== "pix" && paymentMethod !== "credit_card") {
+    return jsonResponse({ error: "Escolha Pix ou cartão de crédito como forma de pagamento." }, 400);
+  }
+  if (
+    !receiptMimeType || !receiptContent ||
+    receiptContent.length % 4 !== 0 ||
+    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(receiptContent) ||
+    receiptByteLength < 1 || receiptByteLength > receiptMaxBytes
+  ) {
+    return jsonResponse({ error: "Anexe um comprovante JPG, PNG, WEBP ou PDF de até 5 MB." }, 400);
+  }
+  let receiptBytes: Uint8Array;
+  try {
+    receiptBytes = Uint8Array.from(atob(receiptContent), (character) => character.charCodeAt(0));
+  } catch {
+    return jsonResponse({ error: "O arquivo do comprovante está inválido. Anexe-o novamente." }, 400);
+  }
+  const [receiptType, receiptFormat] = receiptMimeType;
+  if (
+    receiptBytes.length !== receiptByteLength ||
+    !receiptFormat.signature.every((byte, index) => receiptBytes[index] === byte) ||
+    (receiptType === "image/webp" &&
+      String.fromCharCode(...receiptBytes.slice(8, 12)) !== "WEBP")
+  ) {
+    return jsonResponse({ error: "O formato do arquivo não corresponde ao comprovante anexado." }, 400);
+  }
+  const receiptExtension = receiptFormat.extension;
 
   const parsedDate = new Date(`${date}T12:00:00Z`);
   if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
@@ -99,7 +147,7 @@ Deno.serve(async (request) => {
   const client = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const { data: serviceDuration, error: durationError } = await client.from("service_durations")
     .select("duration_minutes")
-    .eq("service", service)
+    .eq("service", catalogItem.durationService)
     .single();
   if (durationError || !serviceDuration) {
     console.error("Failed to retrieve service duration:", durationError?.message || "No duration was returned.");
@@ -146,7 +194,21 @@ Deno.serve(async (request) => {
     }, 409);
   }
 
+  const bookingId = crypto.randomUUID();
+  const receiptPath = `${bookingId}/comprovante.${receiptExtension}`;
+  const { error: receiptUploadError } = await client.storage.from("booking-receipts")
+    .upload(receiptPath, receiptBytes, {
+      contentType: receiptType,
+      upsert: false,
+    });
+  if (receiptUploadError) {
+    console.error("Failed to store the booking receipt:", receiptUploadError.message);
+    return jsonResponse({ error: "Não foi possível guardar o comprovante. Tente novamente." }, 500);
+  }
+
+  const depositCents = Math.round(catalogItem.priceCents / 2);
   const { data: booking, error: insertError } = await client.from("bookings").insert({
+    id: bookingId,
     customer_name: name,
     customer_phone: phone,
     customer_email: email,
@@ -155,9 +217,17 @@ Deno.serve(async (request) => {
     booking_date: date,
     booking_time: time,
     duration_minutes: durationMinutes,
+    service_price_cents: catalogItem.priceCents,
+    deposit_cents: depositCents,
+    payment_method: paymentMethod,
+    receipt_path: receiptPath,
   }).select("id").single();
 
   if (insertError?.code === "23505" || insertError?.code === "23P01") {
+    const { error: receiptCleanupError } = await client.storage.from("booking-receipts").remove([receiptPath]);
+    if (receiptCleanupError) {
+      console.error("Failed to remove a receipt for a conflicting booking:", receiptCleanupError.message);
+    }
     return jsonResponse({
       code: "slot_taken",
       error: unavailableBookingMessage,
@@ -165,6 +235,10 @@ Deno.serve(async (request) => {
   }
   if (insertError || !booking) {
     console.error("Failed to save the booking:", insertError?.message || "No booking was returned.");
+    const { error: receiptCleanupError } = await client.storage.from("booking-receipts").remove([receiptPath]);
+    if (receiptCleanupError) {
+      console.error("Failed to remove the receipt after the booking could not be saved:", receiptCleanupError.message);
+    }
     return jsonResponse({ error: "Não foi possível salvar o pedido. Tente novamente." }, 500);
   }
 
@@ -177,17 +251,26 @@ Deno.serve(async (request) => {
     timeZone: "UTC",
   }).format(utcDay);
   const whatsapp = phone.replace(/\D/g, "");
+  const paymentMethodLabel = paymentMethod === "pix" ? "Pix" : "Cartão de crédito";
+  const priceLabel = formatCurrency(catalogItem.priceCents);
+  const depositLabel = formatCurrency(depositCents);
+  const receiptAttachment = {
+    filename: `comprovante-${bookingId}.${receiptExtension}`,
+    content: receiptContent,
+  };
   const adminMessage = {
     from: emailFrom || "",
     to: adminEmail ? [adminEmail] : [],
-    subject: `Novo pedido de atendimento — ${name}`,
-    html: `<h2>Novo pedido de agendamento — Batista Beauty</h2><p><strong>Cliente:</strong> ${safeName}</p><p><strong>Telefone:</strong> ${safePhone} (<a href="https://wa.me/${whatsapp}">conversar no WhatsApp</a>)</p><p><strong>E-mail:</strong> ${escapeHtml(email)}</p><p><strong>Serviço/curso:</strong> ${safeService} (${formatDuration(durationMinutes)})</p><p><strong>Data:</strong> ${dateLabel} às ${time}</p><p><strong>Detalhes:</strong> ${safeDetails}</p><p>Acesse o painel da Batista Beauty para confirmar ou ajustar este pedido.</p>`,
+    subject: `Comprovante de reserva — ${name}`,
+    html: `<h2>Novo pedido de reserva — Batista Beauty</h2><p><strong>Cliente:</strong> ${safeName}</p><p><strong>Telefone:</strong> ${safePhone} (<a href="https://wa.me/${whatsapp}">conversar no WhatsApp</a>)</p><p><strong>E-mail:</strong> ${escapeHtml(email)}</p><p><strong>Serviço:</strong> ${safeService} (${formatDuration(durationMinutes)})</p><p><strong>Data:</strong> ${dateLabel} às ${time}</p><p><strong>Valor total:</strong> ${priceLabel}</p><p><strong>Sinal de 50%:</strong> ${depositLabel}</p><p><strong>Pagamento informado:</strong> ${paymentMethodLabel}</p><p><strong>Comprovante:</strong> anexado a este e-mail e disponível no painel.</p><p><strong>Detalhes:</strong> ${safeDetails}</p><p>Confira o pagamento e o comprovante antes de confirmar o horário no painel da Batista Beauty.</p>`,
+    attachments: [receiptAttachment],
   };
   const customerMessage = {
     from: emailFrom || "",
     to: [email],
-    subject: "Recebemos seu pedido — Batista Beauty",
-    html: `<p>Olá, ${safeName}!</p><p>Seu pedido para <strong>${safeService}</strong> (estimativa de ${formatDuration(durationMinutes)}) em <strong>${dateLabel} às ${time}</strong> foi recebido. O horário ainda depende da confirmação da Batista Beauty.</p><p>Seus detalhes: ${safeDetails}</p><p>A Batista Beauty vai entrar em contato pelo WhatsApp ${safePhone} para confirmar os detalhes do atendimento.</p><p>Com carinho,<br>Batista Beauty</p>`,
+    subject: "Recebemos seu comprovante — Batista Beauty",
+    html: `<p>Olá, ${safeName}!</p><p>Recebemos seu pedido para <strong>${safeService}</strong> em <strong>${dateLabel} às ${time}</strong>.</p><p><strong>Valor do serviço:</strong> ${priceLabel}<br><strong>Sinal de 50%:</strong> ${depositLabel}<br><strong>Pagamento informado:</strong> ${paymentMethodLabel}</p><p>O comprovante foi anexado. A reserva ainda não está confirmada: a Batista Beauty vai conferir o pagamento e confirmar o horário.</p><p>Seus detalhes: ${safeDetails}</p><p>A Batista Beauty poderá entrar em contato pelo WhatsApp ${safePhone}.</p><p>Com carinho,<br>Batista Beauty</p>`,
+    attachments: [receiptAttachment],
   };
 
   const [adminDelivery, customerDelivery] = await Promise.all([

@@ -1,17 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { bookingServices } from "../_shared/service-catalog.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const allowedServices = new Set([
-  "Extensão de cílios",
-  "Manutenção de cílios",
-  "Procedimentos estéticos",
-  "Curso de extensão de cílios",
-]);
-
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -33,7 +27,10 @@ Deno.serve(async (request) => {
   if (typeof body.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date)) {
     return jsonResponse({ error: "Escolha uma data válida para consultar a agenda." }, 400);
   }
-  if (typeof body.service !== "string" || !allowedServices.has(body.service)) {
+  const service = typeof body.service === "string"
+    ? Object.entries(bookingServices).find(([name]) => name === body.service)?.[1]
+    : undefined;
+  if (!service) {
     return jsonResponse({ error: "Escolha um serviço para consultar os horários." }, 400);
   }
 
@@ -57,7 +54,7 @@ Deno.serve(async (request) => {
   const client = createClient(url, key, { auth: { persistSession: false } });
   const { data: serviceDuration, error: durationError } = await client.from("service_durations")
     .select("duration_minutes")
-    .eq("service", body.service)
+    .eq("service", service.durationService)
     .single();
   if (durationError || !serviceDuration) {
     console.error("Failed to retrieve service duration:", durationError?.message || "No duration was returned.");

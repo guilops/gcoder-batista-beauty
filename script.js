@@ -36,7 +36,38 @@ const services = [
   "Extensão de cílios",
   "Manutenção de cílios",
   "Procedimentos estéticos",
-  "Curso de extensão de cílios",
+];
+const serviceCatalog = [
+  { group: "Extensão de cílios", name: "Extensão de cílios — Volume Power", priceCents: 19790 },
+  { group: "Extensão de cílios", name: "Extensão de cílios — Volume Express", priceCents: 10000 },
+  { group: "Extensão de cílios", name: "Extensão de cílios — Volume Brasileiro", priceCents: 15000 },
+  { group: "Extensão de cílios", name: "Extensão de cílios — Volume Luxo", priceCents: 17000 },
+  { group: "Extensão de cílios", name: "Extensão de cílios — Volume Glamour", priceCents: 16000 },
+  { group: "Extensão de cílios", name: "Extensão de cílios — Volume Luxuoso", priceCents: 21000 },
+  { group: "Extensão de cílios", name: "Extensão de cílios — Fox Eyes", priceCents: 19000 },
+  { group: "Manutenção de cílios", name: "Manutenção de cílios — Volume Power", priceCents: 13000 },
+  { group: "Manutenção de cílios", name: "Manutenção de cílios — Volume Brasileiro", priceCents: 10000 },
+  { group: "Manutenção de cílios", name: "Manutenção de cílios — Volume Luxo", priceCents: 11000 },
+  { group: "Manutenção de cílios", name: "Manutenção de cílios — Volume Glamour", priceCents: 10000 },
+  { group: "Manutenção de cílios", name: "Manutenção de cílios — Volume Luxuoso", priceCents: 15000 },
+  { group: "Manutenção de cílios", name: "Manutenção de cílios — Fox Eyes", priceCents: 13000 },
+  { group: "Sobrancelhas", name: "Design de sobrancelhas com henna", priceCents: 5500 },
+  { group: "Sobrancelhas", name: "Design de sobrancelhas personalizado", priceCents: 4000 },
+  { group: "Labial", name: "Hidra Gloss — 1 sessão", priceCents: 12000 },
+  { group: "Labial", name: "Hidra Gloss — 3 sessões", priceCents: 29000 },
+  { group: "Labial", name: "SPA Labial — 1 sessão", priceCents: 6000 },
+  { group: "Labial", name: "SPA Labial — 3 sessões", priceCents: 15000 },
+  { group: "Estética facial", name: "BB Clean", priceCents: 14990 },
+  { group: "Estética facial", name: "Skin Detox", priceCents: 11000 },
+  { group: "Estética facial", name: "Revitalize", priceCents: 9000 },
+  { group: "Estética facial", name: "DLT Facial", priceCents: 9000 },
+  { group: "Estética facial", name: "DLT Facial — protocolo 2 (catálogo)", priceCents: 17500 },
+  { group: "Estética facial", name: "DLT Facial — protocolo 3 (catálogo)", priceCents: 18900 },
+  { group: "Estética facial", name: "Glow Frequency", priceCents: 10000 },
+  { group: "Estética corporal", name: "Firm Frequency", priceCents: 19790 },
+  { group: "Estética corporal", name: "Drain Body Relax", priceCents: 14790 },
+  { group: "Estética corporal", name: "Detox corporal", priceCents: 8000 },
+  { group: "Estética corporal", name: "Mantex corporal", priceCents: 9000 },
 ];
 const heroPhotos = [
   {
@@ -75,7 +106,7 @@ const heroPhotos = [
     source: "https://www.pexels.com/search/eyelashes%20beauty%20salon/",
   },
 ];
-const bookingFields = "id,customer_name,customer_phone,customer_email,service,details,booking_date,booking_time,duration_minutes,status";
+const bookingFields = "id,customer_name,customer_phone,customer_email,service,details,booking_date,booking_time,duration_minutes,status,service_price_cents,deposit_cents,payment_method,receipt_path";
 let visibleMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let selectedDate = dateToISO(new Date());
 let monthBookings = [];
@@ -134,7 +165,7 @@ function setBookingDetailsVisible(visible) {
 }
 
 function updateBookingStep(step) {
-  bookingStep.innerHTML = `${String(step).padStart(2, "0")} <i>/ 03</i>`;
+  bookingStep.innerHTML = `${String(step).padStart(2, "0")} <i>/ 04</i>`;
 }
 
 function resetBookingSteps() {
@@ -193,6 +224,91 @@ function formatDuration(minutes) {
   const remainingMinutes = minutes % 60;
   if (!hours) return `${remainingMinutes} min`;
   return remainingMinutes ? `${hours}h ${remainingMinutes}min` : `${hours}h`;
+}
+
+function formatCurrency(cents) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(cents / 100);
+}
+
+function updateDepositSummary() {
+  const service = serviceCatalog.find((item) => item.name === bookingService.value);
+  const serviceLabel = document.querySelector("#deposit-service");
+  const values = document.querySelector("#deposit-values");
+  if (!service) {
+    serviceLabel.textContent = "Selecione um serviço para ver o valor do sinal.";
+    values.textContent = "";
+    return;
+  }
+  const depositCents = Math.round(service.priceCents / 2);
+  serviceLabel.textContent = service.name;
+  values.textContent =
+    `Valor total: ${formatCurrency(service.priceCents)} · Sinal de 50%: ${formatCurrency(depositCents)}`;
+}
+
+function setupServiceCatalog() {
+  const catalogGrid = document.querySelector("#catalog-grid");
+  const pixKeyElement = document.querySelector("#pix-key");
+  if (!bookingService || !catalogGrid || !pixKeyElement) return;
+
+  const groupedServices = new Map();
+  for (const service of serviceCatalog) {
+    const group = groupedServices.get(service.group) || [];
+    group.push(service);
+    groupedServices.set(service.group, group);
+    bookingService.add(new Option(`${service.name} · ${formatCurrency(service.priceCents)} (sinal ${formatCurrency(service.priceCents / 2)})`, service.name));
+  }
+
+  const icons = ["♡", "✧", "◌", "✦", "◇", "❋"];
+  for (const [groupIndex, [group, items]] of [...groupedServices.entries()].entries()) {
+    const card = document.createElement("article");
+    card.className = "service-card";
+    appendBookingField(card, "span", "service-number", `CATÁLOGO · ${String(groupIndex + 1).padStart(2, "0")}`);
+    appendBookingField(card, "span", "service-icon", icons[groupIndex]);
+    appendBookingField(card, "h3", "", group);
+    const list = document.createElement("ul");
+    list.className = "service-prices";
+    for (const service of items) {
+      const item = document.createElement("li");
+      const itemDetails = document.createElement("div");
+      appendBookingField(itemDetails, "strong", "", service.name.replace(`${group} — `, ""));
+      appendBookingField(
+        itemDetails,
+        "small",
+        "",
+        `${formatCurrency(service.priceCents)} · sinal ${formatCurrency(service.priceCents / 2)}`,
+      );
+      item.append(itemDetails);
+      const chooseButton = document.createElement("button");
+      chooseButton.className = "catalog-select";
+      chooseButton.type = "button";
+      chooseButton.textContent = "Agendar";
+      chooseButton.addEventListener("click", () => {
+        bookingService.value = service.name;
+        bookingService.dispatchEvent(new Event("change"));
+        document.querySelector("#agendamento").scrollIntoView({ behavior: "smooth" });
+      });
+      item.append(chooseButton);
+      list.append(item);
+    }
+    card.append(list);
+    catalogGrid.append(card);
+  }
+
+  const pixKey = config.pixKey || "42298943842";
+  pixKeyElement.textContent = pixKey;
+  document.querySelector("[data-copy-pix]").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(pixKey);
+      showToast("Chave Pix copiada.");
+    } catch (error) {
+      console.error("Could not copy the Pix key:", error);
+      showToast("Não foi possível copiar. Selecione e copie a chave Pix exibida na tela.");
+    }
+  });
+  bookingService.addEventListener("change", updateDepositSummary);
 }
 
 function setupHeroCarousel() {
@@ -303,7 +419,7 @@ function setupHeroCarousel() {
 async function loadAvailableSlots(date, service) {
   const requestId = ++slotRequestId;
   setBookingDetailsVisible(false);
-  updateBookingStep(2);
+  updateBookingStep(3);
   if (!service) {
     bookingTime.disabled = true;
     bookingTime.innerHTML = '<option value="">Escolha o serviço primeiro</option>';
@@ -342,8 +458,30 @@ async function loadAvailableSlots(date, service) {
   }
   bookingTime.disabled = false;
   setBookingDetailsVisible(true);
-  updateBookingStep(3);
+  updateBookingStep(4);
   setFeedback(feedback, "");
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("O navegador não conseguiu ler o comprovante."));
+        return;
+      }
+      const base64 = reader.result.split(",")[1];
+      if (!base64) {
+        reject(new Error("O navegador retornou um comprovante inválido."));
+        return;
+      }
+      resolve(base64);
+    }, { once: true });
+    reader.addEventListener("error", () => {
+      reject(reader.error || new Error("Não foi possível ler o arquivo do comprovante."));
+    }, { once: true });
+    reader.readAsDataURL(file);
+  });
 }
 
 async function submitBooking(event) {
@@ -353,13 +491,32 @@ async function submitBooking(event) {
     return;
   }
   const data = Object.fromEntries(new FormData(form).entries());
+  const receiptFile = form.elements.receipt.files[0];
+  if (!receiptFile || receiptFile.size > 5 * 1024 * 1024) {
+    setFeedback(feedback, "Anexe um comprovante JPG, PNG, WEBP ou PDF de até 5 MB.");
+    return;
+  }
   const submitButton = form.querySelector('[type="submit"]');
   submitButton.disabled = true;
-  submitButton.textContent = "Enviando pedido...";
+  submitButton.textContent = "Enviando comprovante...";
   setFeedback(feedback, "");
+  let receiptContent;
+  try {
+    receiptContent = await fileToBase64(receiptFile);
+  } catch (error) {
+    console.error("Could not read the booking receipt:", error);
+    submitButton.disabled = !bookingTime.value;
+    submitButton.innerHTML = 'Enviar comprovante e solicitar reserva <span aria-hidden="true">↗</span>';
+    setFeedback(feedback, "Não foi possível ler o comprovante. Selecione o arquivo novamente.");
+    return;
+  }
+  data.receipt = {
+    mimeType: receiptFile.type,
+    content: receiptContent,
+  };
   const { data: response, error } = await db.functions.invoke("create-booking", { body: data });
   submitButton.disabled = !bookingTime.value;
-  submitButton.innerHTML = 'Solicitar agendamento <span aria-hidden="true">↗</span>';
+  submitButton.innerHTML = 'Enviar comprovante e solicitar reserva <span aria-hidden="true">↗</span>';
   if (error) {
     let responseBody;
     try {
@@ -390,8 +547,9 @@ async function submitBooking(event) {
   }
   form.reset();
   resetBookingSteps();
+  updateDepositSummary();
   if (response.notificationsSent) {
-    setFeedback(feedback, "Pedido registrado! Enviamos os detalhes para seu e-mail e para a equipe. A Batista Beauty vai confirmar o horário.", true);
+    setFeedback(feedback, "Comprovante recebido! Enviamos o pedido e o anexo por e-mail. A reserva ainda depende da conferência e confirmação da Batista Beauty.", true);
   } else {
     const delivery = response.emailDelivery;
     const emailErrors = response.emailErrors || {};
@@ -404,7 +562,7 @@ async function submitBooking(event) {
     const serviceDetails = `${data.service}, ${formatDateTitle(data.booking_date)} às ${data.booking_time}${data.details ? ` — ${data.details}` : ""}`;
     setFeedback(
       feedback,
-      `ALERTA: pedido registrado, mas falhou o envio de e-mail: ${failedRecipients} | Pedido: ${serviceDetails}. O horário ainda depende de confirmação da equipe.`,
+      `ALERTA: reserva solicitada e comprovante salvo, mas falhou o envio de e-mail: ${failedRecipients} | Pedido: ${serviceDetails}. A equipe pode conferir o anexo no painel; o horário ainda depende de confirmação.`,
     );
   }
 }
@@ -442,7 +600,38 @@ function renderBookingList() {
     details.className = "admin-booking-main";
     appendBookingField(details, "strong", "", booking.customer_name);
     appendBookingField(details, "small", "", `${booking.service} · ${formatDuration(booking.duration_minutes)}${booking.details ? ` · ${booking.details}` : ""}`);
+    const priceDetails = booking.service_price_cents > 0
+      ? `Valor: ${formatCurrency(booking.service_price_cents)} · Sinal (50%): ${formatCurrency(booking.deposit_cents)}`
+      : "Valor e sinal não registrados (pedido antigo).";
+    appendBookingField(details, "small", "", priceDetails);
+    appendBookingField(details, "small", "", `Pagamento: ${booking.payment_method === "pix" ? "Pix" : booking.payment_method === "credit_card" ? "Cartão de crédito" : "não informado"}`);
     card.append(details);
+    if (booking.receipt_path) {
+      const receiptLink = document.createElement("a");
+      receiptLink.className = "receipt-link";
+      receiptLink.href = "#";
+      receiptLink.textContent = "Ver comprovante";
+      receiptLink.addEventListener("click", async (event) => {
+        event.preventDefault();
+        const receiptWindow = window.open("about:blank", "_blank");
+        if (!receiptWindow) {
+          showToast("Permita a abertura de janelas para visualizar o comprovante.");
+          return;
+        }
+        receiptWindow.opener = null;
+        const { data, error } = await db.storage.from("booking-receipts")
+          .createSignedUrl(booking.receipt_path, 60 * 60);
+        if (error || !data?.signedUrl) {
+          receiptWindow.close();
+          showToast(`Não foi possível abrir o comprovante: ${error?.message || "link indisponível"}`);
+          return;
+        }
+        receiptWindow.location.href = data.signedUrl;
+      });
+      details.append(receiptLink);
+    } else {
+      appendBookingField(details, "small", "receipt-missing", "Comprovante não anexado.");
+    }
     const contact = document.createElement("div");
     contact.className = "admin-booking-contact";
     const phoneLink = document.createElement("a");
@@ -468,7 +657,13 @@ function renderBookingList() {
       ["completed", "Concluído"],
       ["cancelled", "Cancelado"],
     ]) {
-      select.add(new Option(label, value, false, booking.status === value));
+      const option = new Option(label, value, false, booking.status === value);
+      if (value === "confirmed") {
+        option.disabled = !booking.receipt_path ||
+          !booking.service_price_cents ||
+          booking.deposit_cents * 2 !== booking.service_price_cents;
+      }
+      select.add(option);
     }
     select.addEventListener("change", () => updateBookingStatus(booking.id, select.value, select));
     actions.append(select);
@@ -781,6 +976,17 @@ function renderCalendar() {
 }
 
 async function updateBookingStatus(id, status, select) {
+  const booking = monthBookings.find((item) => item.id === id);
+  if (
+    status === "confirmed" &&
+    (!booking?.receipt_path ||
+      !booking.service_price_cents ||
+      booking.deposit_cents * 2 !== booking.service_price_cents)
+  ) {
+    select.value = booking?.status || "pending";
+    showToast("Só é possível confirmar após receber o comprovante do sinal de 50%.");
+    return;
+  }
   select.disabled = true;
   const { error } = await db.from("bookings").update({ status }).eq("id", id);
   select.disabled = false;
@@ -997,6 +1203,7 @@ document.querySelector("#save-durations-button")?.addEventListener("click", (eve
 });
 setupContactLinks();
 setupHeroCarousel();
+setupServiceCatalog();
 setBookingAvailability(supabaseReady);
 window.addEventListener("hashchange", routeToAdmin);
 routeToAdmin();
