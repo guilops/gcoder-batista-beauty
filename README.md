@@ -13,7 +13,7 @@ Site responsivo para divulgar os serviços e preços do catálogo Batista Beauty
    npx supabase@latest db query --file .\supabase\schema.sql --remote
    ```
 
-   O último comando cria as tabelas, permissões e políticas de acesso. Como alternativa, execute [`supabase/schema.sql`](./supabase/schema.sql) no SQL Editor desse mesmo projeto.
+   O último comando cria as tabelas, permissões e políticas de acesso. Como alternativa, execute [`supabase/schema.sql`](./supabase/schema.sql) no SQL Editor desse mesmo projeto. Se a agenda já estava instalada, execute o schema novamente para adicionar o registro do aceite da política do sinal.
 3. Em **Authentication → Users**, crie a conta administrativa da Batista Beauty com um e-mail controlado por ela. Copie o UUID desse usuário.
 4. No SQL Editor desse mesmo projeto, conceda acesso ao painel:
 
@@ -27,6 +27,7 @@ Site responsivo para divulgar os serviços e preços do catálogo Batista Beauty
    ```powershell
    npx supabase@latest functions deploy booking-slots --no-verify-jwt
    npx supabase@latest functions deploy create-booking --no-verify-jwt
+   npx supabase@latest functions deploy confirm-booking
    ```
 
    O projeto já está escolhido; não vincule nem execute o schema em outro projeto, como o da DMM Montagens.
@@ -40,9 +41,10 @@ No PowerShell, depois de vincular a CLI ao projeto:
 ```powershell
 npx supabase secrets set RESEND_API_KEY="SUA_CHAVE_RESEND" ADMIN_EMAIL="EMAIL_DA_BATISTA_BEAUTY" EMAIL_FROM="Batista Beauty <agenda@SEU_DOMINIO_VERIFICADO>"
 npx supabase functions deploy create-booking --no-verify-jwt
+npx supabase functions deploy confirm-booking
 ```
 
-O comprovante JPG, PNG, WEBP ou PDF (até 5 MB) é mantido apenas em memória durante o processamento e anexado aos e-mails da cliente e da equipe; o arquivo não é armazenado no Supabase. O pedido permanece salvo mesmo se o envio falhar. `/gestao/` mostra o valor, o sinal, o meio de pagamento e se o e-mail com comprovante foi enviado à equipe. A confirmação fica bloqueada até esse envio; depois, a equipe confere o anexo recebido por e-mail e aprova o pedido no painel.
+O comprovante JPG, PNG, WEBP ou PDF (até 5 MB) é mantido apenas em memória durante o processamento e anexado aos e-mails da cliente e da equipe; o arquivo não é armazenado no Supabase. O pedido permanece salvo mesmo se o envio falhar. `/gestao/` mostra o valor, o sinal, o meio de pagamento e se o e-mail com comprovante foi enviado à equipe. A confirmação fica bloqueada até esse envio; depois, a equipe confere o anexo recebido por e-mail e confirma o agendamento pelo painel. O formulário exige que a cliente aceite a política do sinal e registra a data/hora do aceite. O cliente recebe um e-mail de confirmação sem o comprovante, informando que faltas ou cancelamentos não geram devolução, salvo hipóteses previstas em lei, e deve falar com a equipe pelo WhatsApp para comunicar o cancelamento.
 
 ## Serviços e agenda
 

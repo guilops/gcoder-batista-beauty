@@ -21,6 +21,7 @@ create table if not exists public.bookings (
   service_price_cents integer not null default 0 check (service_price_cents >= 0),
   deposit_cents integer check (deposit_cents is null or deposit_cents >= 0),
   payment_method text check (payment_method is null or payment_method in ('pix', 'credit_card')),
+  deposit_policy_accepted_at timestamptz,
   receipt_path text,
   created_at timestamptz not null default now()
 );
@@ -33,6 +34,7 @@ alter table public.bookings
     check (deposit_cents is null or deposit_cents >= 0),
   add column if not exists payment_method text
     check (payment_method is null or payment_method in ('pix', 'credit_card')),
+  add column if not exists deposit_policy_accepted_at timestamptz,
   add column if not exists receipt_path text;
 
 update public.bookings
@@ -74,11 +76,12 @@ as $$
 begin
   if tg_op = 'INSERT' and (
     new.payment_method is null or
+    new.deposit_policy_accepted_at is null or
     new.service_price_cents <= 0 or
     new.deposit_cents is null or
     new.deposit_cents <> (new.service_price_cents / 200) * 100
   ) then
-    raise exception 'A payment method and valid rounded deposit are required to create a booking request.'
+    raise exception 'Policy acceptance, a payment method, and a valid rounded deposit are required to create a booking request.'
       using errcode = '23514';
   end if;
   if new.status = 'confirmed' and (

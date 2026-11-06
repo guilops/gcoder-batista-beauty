@@ -17,6 +17,7 @@ type BookingRequest = {
   booking_date?: unknown;
   booking_time?: unknown;
   payment_method?: unknown;
+  deposit_policy_accepted?: unknown;
   receipt?: unknown;
   website?: unknown;
 };
@@ -105,6 +106,9 @@ async function handleCreateBooking(request: Request) {
   }
   if (paymentMethod !== "pix" && paymentMethod !== "credit_card") {
     return jsonResponse({ error: "Escolha Pix ou cartão de crédito como forma de pagamento." }, 400);
+  }
+  if (body.deposit_policy_accepted !== "true") {
+    return jsonResponse({ error: "Confirme que leu e aceitou a política do sinal antes de solicitar a reserva." }, 400);
   }
   if (
     !receiptMimeType || !receiptContent ||
@@ -231,6 +235,7 @@ async function handleCreateBooking(request: Request) {
     service_price_cents: catalogItem.priceCents,
     deposit_cents: depositCents,
     payment_method: paymentMethod,
+    deposit_policy_accepted_at: new Date().toISOString(),
   }).select("id").single();
 
   if (insertError?.code === "23505" || insertError?.code === "23P01") {
@@ -267,14 +272,14 @@ async function handleCreateBooking(request: Request) {
     from: emailFrom || "",
     to: adminEmail ? [adminEmail] : [],
     subject: `Comprovante de reserva — ${name}`,
-    html: `<h2>Novo pedido de reserva — Batista Beauty</h2><p><strong>Cliente:</strong> ${safeName}</p><p><strong>Telefone:</strong> ${safePhone} (<a href="https://wa.me/${whatsapp}">conversar no WhatsApp</a>)</p><p><strong>E-mail:</strong> ${escapeHtml(email)}</p><p><strong>Serviço:</strong> ${safeService} (${formatDuration(durationMinutes)})</p><p><strong>Data:</strong> ${dateLabel} às ${time}</p><p><strong>Valor total:</strong> ${priceLabel}</p><p><strong>Sinal para reserva (50% arredondado para baixo, sem centavos):</strong> ${depositLabel}</p><p><strong>Pagamento informado:</strong> ${paymentMethodLabel}</p><p><strong>Comprovante:</strong> anexado a este e-mail.</p><p><strong>Detalhes:</strong> ${safeDetails}</p><p>Confira o pagamento e o comprovante antes de confirmar o horário no painel da Batista Beauty.</p>`,
+    html: `<h2>Novo pedido de reserva — Batista Beauty</h2><p><strong>Cliente:</strong> ${safeName}</p><p><strong>Telefone:</strong> ${safePhone} (<a href="https://wa.me/${whatsapp}">conversar no WhatsApp</a>)</p><p><strong>E-mail:</strong> ${escapeHtml(email)}</p><p><strong>Serviço:</strong> ${safeService} (${formatDuration(durationMinutes)})</p><p><strong>Data:</strong> ${dateLabel} às ${time}</p><p><strong>Valor total:</strong> ${priceLabel}</p><p><strong>Sinal (50% do valor, sem centavos):</strong> ${depositLabel}</p><p><strong>Pagamento informado:</strong> ${paymentMethodLabel}</p><p><strong>Comprovante:</strong> anexado a este e-mail.</p><p><strong>Detalhes:</strong> ${safeDetails}</p><p>Confira o pagamento e o comprovante antes de confirmar o horário no painel da Batista Beauty.</p>`,
     attachments: [receiptAttachment],
   };
   const customerMessage = {
     from: emailFrom || "",
     to: [email],
     subject: "Recebemos seu comprovante — Batista Beauty",
-    html: `<p>Olá, ${safeName}!</p><p>Recebemos seu pedido para <strong>${safeService}</strong> em <strong>${dateLabel} às ${time}</strong>.</p><p><strong>Valor do serviço:</strong> ${priceLabel}<br><strong>Sinal para reserva (50% arredondado para baixo, sem centavos):</strong> ${depositLabel}<br><strong>Pagamento informado:</strong> ${paymentMethodLabel}</p><p>O comprovante foi anexado. A reserva ainda não está confirmada: a Batista Beauty vai conferir o pagamento e confirmar o horário.</p><p>Seus detalhes: ${safeDetails}</p><p>A Batista Beauty poderá entrar em contato pelo WhatsApp ${safePhone}.</p><p>Com carinho,<br>Batista Beauty</p>`,
+    html: `<p>Olá, ${safeName}!</p><p>Recebemos seu pedido para <strong>${safeService}</strong> em <strong>${dateLabel} às ${time}</strong>.</p><p><strong>Valor do serviço:</strong> ${priceLabel}<br><strong>Sinal (50% do valor, sem centavos):</strong> ${depositLabel}<br><strong>Pagamento informado:</strong> ${paymentMethodLabel}</p><p>O comprovante foi anexado. A reserva ainda não está confirmada: a Batista Beauty vai conferir o pagamento e confirmar o horário.</p><p>Seus detalhes: ${safeDetails}</p><p>A Batista Beauty poderá entrar em contato pelo WhatsApp ${safePhone}.</p><p>Com carinho,<br>Batista Beauty</p>`,
     attachments: [receiptAttachment],
   };
 

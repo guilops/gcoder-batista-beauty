@@ -17,6 +17,7 @@ const bookingTime = document.querySelector("#booking-time");
 const bookingDetails = document.querySelector("#booking-details");
 const bookingStep = document.querySelector("#booking-step");
 const bookingSubmit = form?.querySelector('[type="submit"]');
+const depositPolicyConsent = form?.querySelector("#deposit-policy-consent");
 const feedback = document.querySelector("#booking-feedback");
 const adminOverlay = document.querySelector("#admin-overlay");
 const loginForm = document.querySelector("#login-form");
@@ -158,10 +159,17 @@ function setBookingAvailability(enabled) {
 
 function setBookingDetailsVisible(visible) {
   bookingDetails.hidden = !visible;
+  if (!visible && depositPolicyConsent) depositPolicyConsent.checked = false;
   for (const element of bookingDetails.querySelectorAll("input, select, textarea, button")) {
     element.disabled = !visible;
   }
-  bookingSubmit.disabled = !visible || !bookingTime.value;
+  updateBookingSubmitAvailability();
+}
+
+function updateBookingSubmitAvailability() {
+  if (!bookingSubmit) return;
+  bookingSubmit.disabled = !clientBookingsEnabled || bookingDetails.hidden ||
+    !bookingTime.value || !depositPolicyConsent?.checked;
 }
 
 function updateBookingStep(step) {
@@ -249,7 +257,7 @@ function updateDepositSummary() {
   const depositCents = calculateDepositCents(service.priceCents);
   serviceLabel.textContent = service.name;
   values.textContent =
-    `Valor total: ${formatCurrency(service.priceCents)} · Sinal (50% arredondado para baixo, sem centavos): ${formatCurrency(depositCents)}`;
+    `Valor total: ${formatCurrency(service.priceCents)} · Sinal (50% do valor, sem centavos): ${formatCurrency(depositCents)}`;
 }
 
 function setupServiceCatalog() {
@@ -518,7 +526,7 @@ async function submitBooking(event) {
     receiptContent = await fileToBase64(receiptFile);
   } catch (error) {
     console.error("Could not read the booking receipt:", error);
-    submitButton.disabled = !bookingTime.value;
+    updateBookingSubmitAvailability();
     submitButton.innerHTML = 'Enviar comprovante e solicitar reserva <span aria-hidden="true">↗</span>';
     setFeedback(feedback, "Não foi possível ler o comprovante. Selecione o arquivo novamente.");
     return;
@@ -534,7 +542,7 @@ async function submitBooking(event) {
   } catch (error) {
     invokeError = error;
   }
-  submitButton.disabled = !bookingTime.value;
+  updateBookingSubmitAvailability();
   submitButton.innerHTML = 'Enviar comprovante e solicitar reserva <span aria-hidden="true">↗</span>';
   if (invokeError) {
     console.error("Booking request failed:", invokeError);
@@ -985,14 +993,32 @@ async function updateBookingStatus(id, status, select) {
     return;
   }
   select.disabled = true;
-  const { error } = await db.from("bookings").update({ status }).eq("id", id);
+  let error;
+  if (status === "confirmed") {
+    const result = await db.functions.invoke("confirm-booking", { body: { bookingId: id } });
+    error = result.error;
+    if (error) {
+      let message = result.data?.error || error.message;
+      try {
+        const responseBody = await error.context?.json();
+        if (responseBody?.error) message = responseBody.error;
+      } catch {
+        // Keep the function error message when the response has no JSON body.
+      }
+      error = new Error(message);
+    }
+  } else {
+    ({ error } = await db.from("bookings").update({ status }).eq("id", id));
+  }
   select.disabled = false;
   if (error) {
     showToast(`Não foi possível atualizar o agendamento: ${error.message}`);
     await refreshDashboard();
     return;
   }
-  showToast("Status do agendamento atualizado.");
+  showToast(status === "confirmed"
+    ? "Agendamento confirmado e e-mail enviado ao cliente."
+    : "Status do agendamento atualizado.");
   await refreshDashboard();
 }
 
@@ -1165,8 +1191,9 @@ if (form && bookingDate) {
     updateBookingStep(2);
   });
   bookingTime.addEventListener("change", () => {
-    bookingSubmit.disabled = !bookingTime.value;
+    updateBookingSubmitAvailability();
   });
+  depositPolicyConsent?.addEventListener("change", updateBookingSubmitAvailability);
 }
 loginForm.addEventListener("submit", handleLogin);
 document.querySelector("#signout-button").addEventListener("click", signOut);
